@@ -1,4 +1,4 @@
-# OmniPose
+# 9jodae_OmniPose
 
 THIS IS COPY FOR STUDY. ORIGINAL = https://github.com/bmartacho/OmniPose
 
