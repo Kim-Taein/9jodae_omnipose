@@ -1,5 +1,7 @@
 # OmniPose
 
+THIS IS COPY FOR STUDY. ORIGINAL = https://github.com/bmartacho/OmniPose
+
   <a href="https://arxiv.org/abs/2103.10180">**OmniPose: A Multi-Scale Framework for Multi-Person Pose Estimation**</a>.
 </p><br />
 
