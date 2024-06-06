@@ -1,6 +1,7 @@
 # 9jodae_OmniPose
 
 THIS IS COPY FOR STUDY. ORIGINAL = https://github.com/bmartacho/OmniPose
+
 공부용으로 베껴온 깃허브입니다. 원본은 https://github.com/bmartacho/OmniPose 여기서 보세용
 
   <a href="https://arxiv.org/abs/2103.10180">**OmniPose: A Multi-Scale Framework for Multi-Person Pose Estimation**</a>.
