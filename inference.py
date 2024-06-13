@@ -195,6 +195,8 @@ def parse_args():
     parser.add_argument('--dataDir', help='data directory', type=str, default='')
     parser.add_argument('--prevModelDir', help='prev Model directory', type=str, default='')
     parser.add_argument('--model-file', help='path to the pretrained model file', required=True, type=str)
+    parser.add_argument('--files-loc', help='input images directory', required=True, type=str)
+    parser.add_argument('--output-dir', help='output images directory', required=True, type=str)
 
     args = parser.parse_args()
     return args
@@ -279,7 +281,11 @@ def main(args):
 
     model.eval()
 
-    files_loc = '/content/drive/MyDrive/infer_test'
+    files_loc = args.files_loc
+    output_dir = args.output_dir
+    if not os.path.exists(output_dir):
+      os.makedirs(output_dir)
+
     images = os.listdir(files_loc)
 
     all_data = []
@@ -289,6 +295,11 @@ def main(args):
         img_path = os.path.join(files_loc,images[idx])
 
         data_numpy = cv2.imread(img_path, cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)
+
+        if data_numpy is None:
+          print(f"Error reading image {img_path}. Skipping...")
+          continue
+
         data_numpy = cv2.resize(data_numpy, (384,288), interpolation = cv2.INTER_AREA)
         data_numpy = cv2.cvtColor(data_numpy, cv2.COLOR_BGR2RGB)
 
@@ -325,10 +336,12 @@ def main(args):
         all_data.append(img_data)
 
         colorstyle = artacho_style
+        output_image_path = os.path.join(output_dir, images[idx])
 
-        plot_MPII_image(preds, img_path, '/content/drive/MyDrive/infer_samples/' + images[idx], colorstyle.link_pairs, colorstyle.ring_color, colorstyle.color_ids, save=True)
+        plot_MPII_image(preds, img_path, output_image_path, colorstyle.link_pairs, colorstyle.ring_color, colorstyle.color_ids, save=True)
         
-    with open('/content/drive/MyDrive/infer_samples/all_keypoints.json', 'w') as f:
+    json_file_path = os.path.join(output_dir, 'all_keypoints.json')
+    with open(json_file_path, 'w') as f:
         json.dump(all_data, f, indent=4)
 
 if __name__ == '__main__':
