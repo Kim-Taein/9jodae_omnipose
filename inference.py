@@ -197,6 +197,7 @@ def parse_args():
     parser.add_argument('--model-file', help='path to the pretrained model file', required=True, type=str)
     parser.add_argument('--files-loc', help='input images directory', required=True, type=str)
     parser.add_argument('--output-dir', help='output images directory', required=True, type=str)
+    parser.add_argument('--generation-id', help='Generation ID for the inference run', required=True, type=str)
 
     args = parser.parse_args()
     return args
@@ -286,7 +287,7 @@ def main(args):
     if not os.path.exists(output_dir):
       os.makedirs(output_dir)
 
-    images = os.listdir(files_loc)
+    images = [files_loc]
 
     all_data = []
 
@@ -328,7 +329,7 @@ def main(args):
         img_data = {
             "joint_vis": joint_vis,
             "joints": joints,
-            "image": images[idx],
+            "image": os.path.basename(img_path),
             "scale": scale,
             "center": center
         }
@@ -336,7 +337,7 @@ def main(args):
         all_data.append(img_data)
 
         colorstyle = artacho_style
-        output_image_path = os.path.join(output_dir, images[idx])
+        output_image_path = os.path.join(output_dir, 'output_' + os.path.basename(img_path))
 
         plot_MPII_image(preds, img_path, output_image_path, colorstyle.link_pairs, colorstyle.ring_color, colorstyle.color_ids, save=True)
 
@@ -355,7 +356,7 @@ def main(args):
         img_data["scale"] = resized_scale
 
         
-    json_file_path = os.path.join(output_dir, 'all_keypoints.json')
+    json_file_path = os.path.join(output_dir, os.path.splitext(os.path.basename(files_loc))[0] + '_pose.json')
     with open(json_file_path, 'w') as f:
         json.dump(all_data, f, indent=4)
 
