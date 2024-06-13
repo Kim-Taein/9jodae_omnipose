@@ -197,7 +197,8 @@ def parse_args():
     parser.add_argument('--model-file', help='path to the pretrained model file', required=True, type=str)
     parser.add_argument('--files-loc', help='input images directory', required=True, type=str)
     parser.add_argument('--output-dir', help='output images directory', required=True, type=str)
-    parser.add_argument('--generation-id', help='Generation ID for the inference run', required=True, type=str)
+    parser.add_argument('--output-image-name', help='name of the output image file', required=True, type=str)
+    parser.add_argument('--output-json-name', help='name of the output JSON file', required=True, type=str)
 
     args = parser.parse_args()
     return args
@@ -282,84 +283,73 @@ def main(args):
 
     model.eval()
 
-    files_loc = args.files_loc
+    img_path = args.files_loc
     output_dir = args.output_dir
     if not os.path.exists(output_dir):
       os.makedirs(output_dir)
 
-    images = [files_loc]
-
     all_data = []
 
-    for idx in range(len(images)):
-        print(idx,"/",len(images))
-        img_path = os.path.join(files_loc,images[idx])
+    print("Processing:", img_path)
+    data_numpy = cv2.imread(img_path, cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)
+    if data_numpy is None:
+        print(f"Error reading image {img_path}. Skipping...")
+        return
 
-        data_numpy = cv2.imread(img_path, cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)
+    data_numpy = cv2.resize(data_numpy, (384, 288), interpolation=cv2.INTER_AREA)
+    data_numpy = cv2.cvtColor(data_numpy, cv2.COLOR_BGR2RGB)
 
-        if data_numpy is None:
-          print(f"Error reading image {img_path}. Skipping...")
-          continue
+    data_numpy = transform(data_numpy)
+    input = torch.zeros((1, 3, data_numpy.shape[1], data_numpy.shape[2]))
+    input[0] = data_numpy
 
-        data_numpy = cv2.resize(data_numpy, (384,288), interpolation = cv2.INTER_AREA)
-        data_numpy = cv2.cvtColor(data_numpy, cv2.COLOR_BGR2RGB)
+    input = input.cuda()
 
+    outputs = model(input)
+    preds, maxvals = get_final_preds_no_transform(cfg, outputs.detach().cpu().numpy())
 
-        data_numpy = transform(data_numpy)
-        input = torch.zeros((1,3,data_numpy.shape[1], data_numpy.shape[2]))
-        input[0] = data_numpy
+    preds = 4 * preds
 
-        input = input.cuda()
+    joint_vis = [1 if maxval[0] > 0.5 else 0 for maxval in maxvals[0]]
+    joints = preds[0].tolist()
+    scale, center = calculate_bbox_info(joints)
 
-        outputs = model(input)
+    original_image = cv2.imread(img_path)
+    original_size = original_image.shape[:2]  # height, width
+    transformed_keypoints = transform_coords(joints, original_size)
 
-        preds, maxvals = get_final_preds_no_transform(cfg, outputs.detach().cpu().numpy())
+    img_data = {
+        "joint_vis": joint_vis,
+        "joints": joints,
+        "image": os.path.basename(img_path),
+        "scale": scale,
+        "center": center
+    }
 
-        preds = 4*preds
+    all_data.append(img_data)
 
-        joint_vis = [1 if maxval[0] > 0.5 else 0 for maxval in maxvals[0]]
-        joints = preds[0].tolist()
-        scale, center = calculate_bbox_info(joints)
+    colorstyle = artacho_style
+    output_image_path = os.path.join(output_dir, args.output_image_name)
+    plot_MPII_image(preds, img_path, output_image_path, colorstyle.link_pairs, colorstyle.ring_color, colorstyle.color_ids, save=True)
 
-        original_image = cv2.imread(img_path)
-        original_size = original_image.shape[:2]  # height, width
-        transformed_keypoints = transform_coords(joints, original_size)
+    output_image = cv2.imread(output_image_path)
+    resized_image = cv2.resize(output_image, (64, 128), interpolation=cv2.INTER_AREA)
+    cv2.imwrite(output_image_path, resized_image)
 
+    width_ratio = 64 / 384
+    height_ratio = 128 / 288
+    resized_joints = [[x * width_ratio, y * height_ratio] for x, y in joints]
+    resized_center = [center[0] * width_ratio, center[1] * height_ratio]
+    resized_scale = scale * max(width_ratio, height_ratio)  # scale은 더 큰 비율로 변환
 
-        img_data = {
-            "joint_vis": joint_vis,
-            "joints": joints,
-            "image": os.path.basename(img_path),
-            "scale": scale,
-            "center": center
-        }
+    img_data["joints"] = resized_joints
+    img_data["center"] = resized_center
+    img_data["scale"] = resized_scale
 
-        all_data.append(img_data)
-
-        colorstyle = artacho_style
-        output_image_path = os.path.join(output_dir, 'output_' + os.path.basename(img_path))
-
-        plot_MPII_image(preds, img_path, output_image_path, colorstyle.link_pairs, colorstyle.ring_color, colorstyle.color_ids, save=True)
-
-        output_image = cv2.imread(output_image_path)
-        resized_image = cv2.resize(output_image, (64, 128), interpolation=cv2.INTER_AREA)
-        cv2.imwrite(output_image_path, resized_image)
-
-        width_ratio = 64 / 384
-        height_ratio = 128 / 288
-        resized_joints = [[x * width_ratio, y * height_ratio] for x, y in joints]
-        resized_center = [center[0] * width_ratio, center[1] * height_ratio]
-        resized_scale = scale * max(width_ratio, height_ratio)  # scale은 더 큰 비율로 변환
-
-        img_data["joints"] = resized_joints
-        img_data["center"] = resized_center
-        img_data["scale"] = resized_scale
-
-        
-    json_file_path = os.path.join(output_dir, os.path.splitext(os.path.basename(files_loc))[0] + '_pose.json')
+    json_file_path = os.path.join(output_dir, args.output_json_name)
     with open(json_file_path, 'w') as f:
         json.dump(all_data, f, indent=4)
 
 if __name__ == '__main__':
-    arg = parse_args()
-    main(arg)
+    args = parse_args()
+    main(args)
