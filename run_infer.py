@@ -3,36 +3,55 @@
 # run_infer.py 하나로 ppe랑 hpe가 한번씩 돌려서 각자 저장되게
 
 import subprocess
+import os
+import requests
 
-def run_inference(model_file, files_loc, output_dir, generation_id):
+def download_image(url, save_path):
+    response = requests.get(url)
+    response.raise_for_status()  # URL이 유효하지 않을 경우 예외 발생
+
+    with open(save_path, 'wb') as file:
+        file.write(response.content)
+
+def run_inference(model_file, image_path, output_dir, generation_id):
     command = [
         'python', 'inference.py', 
         '--model-file', model_file, 
-        '--files-loc', files_loc, 
+        '--files-loc', image_path, 
         '--output-dir', output_dir,
-        '--generation-id', generation_id  # generation_id를 인자로 추가
+        '--generation-id', generation_id
     ]
     subprocess.run(command, check=True)
 
 def run_infer(generationId, conditionImageUrl, targetImageUrl):
+    # 생성할 디렉토리 경로
+    output_dir = f'/content/drive/MyDrive/generation/{generationId}'
+    os.makedirs(output_dir, exist_ok=True)
+
+    # 다운로드할 파일 경로
+    target_image_path = os.path.join(output_dir, 'target_image.jpg')
+    condition_image_path = os.path.join(output_dir, 'condition_image.jpg')
+
+    # URL에서 이미지를 다운로드하여 저장
+    download_image(targetImageUrl, target_image_path)
+    download_image(conditionImageUrl, condition_image_path)
+
     ppe_model_file = '/content/drive/MyDrive/OmniPose/checkpoint_ppe.pth'  # 경로 수정
-    ppe_files_loc = targetImageUrl
-    ppe_output_dir = f'/content/drive/MyDrive/samples/ppe/{generationId}'
-
     hpe_model_file = '/content/drive/MyDrive/OmniPose/checkpoint_hpe.pth'  # 경로 수정
-    hpe_files_loc = conditionImageUrl
-    hpe_output_dir = f'/content/drive/MyDrive/samples/hpe/{generationId}'
 
-    run_inference(ppe_model_file, ppe_files_loc, ppe_output_dir, generationId)
-    run_inference(hpe_model_file, hpe_files_loc, hpe_output_dir, generationId)
+    # PPE 인퍼런스
+    run_inference(ppe_model_file, target_image_path, output_dir, generationId)
+
+    # HPE 인퍼런스
+    run_inference(hpe_model_file, condition_image_path, output_dir, generationId)
 
 if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(description='Run inference on multiple models')
     parser.add_argument('--generation-id', required=True, help='Generation ID for the inference run')
-    parser.add_argument('--target-image-url', required=True, help='Path to the PPE input image directory')
-    parser.add_argument('--condition-image-url', required=True, help='Path to the HPE input image directory')
+    parser.add_argument('--target-image-url', required=True, help='URL of the PPE input image')
+    parser.add_argument('--condition-image-url', required=True, help='URL of the HPE input image')
 
     args = parser.parse_args()
 
