@@ -13,13 +13,14 @@ def download_image(url, save_path):
     with open(save_path, 'wb') as file:
         file.write(response.content)
 
-def run_inference(model_file, image_path, output_dir, generation_id):
+def run_inference(model_file, image_path, output_dir, output_image_name, output_json_name):
     command = [
         'python', 'inference.py', 
         '--model-file', model_file, 
         '--files-loc', image_path, 
         '--output-dir', output_dir,
-        '--generation-id', generation_id
+        '--output-image-name', output_image_name,
+        '--output-json-name', output_json_name
     ]
     subprocess.run(command, check=True)
 
@@ -40,10 +41,10 @@ def run_infer(generationId, conditionImageUrl, targetImageUrl):
     hpe_model_file = '/content/drive/MyDrive/OmniPose/checkpoint_hpe.pth'  # 경로 수정
 
     # PPE 인퍼런스
-    run_inference(ppe_model_file, target_image_path, output_dir, generationId)
+    run_inference(ppe_model_file, target_image_path, output_dir, 'converted_target_image.jpg', 'converted_target_pose.json')
 
     # HPE 인퍼런스
-    run_inference(hpe_model_file, condition_image_path, output_dir, generationId)
+    run_inference(hpe_model_file, condition_image_path, output_dir, 'converted_condition_image.jpg', 'converted_condition_pose.json')
 
 if __name__ == '__main__':
     import argparse
