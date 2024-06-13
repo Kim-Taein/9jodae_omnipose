@@ -108,7 +108,7 @@ def parse_args():
     return args
 
 
-def transform_coords(coords, original_size, model_input_size=(404, 308)):
+def transform_coords(coords, original_size, model_input_size=(384, 288)):
     orig_height, orig_width = original_size
     model_height, model_width = model_input_size
     scale_x = orig_width / model_width
@@ -339,6 +339,21 @@ def main(args):
         output_image_path = os.path.join(output_dir, images[idx])
 
         plot_MPII_image(preds, img_path, output_image_path, colorstyle.link_pairs, colorstyle.ring_color, colorstyle.color_ids, save=True)
+
+        output_image = cv2.imread(output_image_path)
+        resized_image = cv2.resize(output_image, (64, 128), interpolation=cv2.INTER_AREA)
+        cv2.imwrite(output_image_path, resized_image)
+
+        width_ratio = 64 / 384
+        height_ratio = 128 / 288
+        resized_joints = [[x * width_ratio, y * height_ratio] for x, y in joints]
+        resized_center = [center[0] * width_ratio, center[1] * height_ratio]
+        resized_scale = scale * max(width_ratio, height_ratio)  # scale은 더 큰 비율로 변환
+
+        img_data["joints"] = resized_joints
+        img_data["center"] = resized_center
+        img_data["scale"] = resized_scale
+
         
     json_file_path = os.path.join(output_dir, 'all_keypoints.json')
     with open(json_file_path, 'w') as f:
