@@ -163,9 +163,9 @@ def main(args):
     for i in range(last_epoch):
         lr_scheduler.step()
 
-    # In case you want to freeze layers prior to WASPv2, uncomment below:
-    # model.requires_grad = False
-    # model.waspv2.requires_grad = True
+    # Transfer Learning
+    model.requires_grad = False
+    model.waspv2.requires_grad = True
 
     for epoch in range(begin_epoch, cfg.TRAIN.END_EPOCH):
         lr_scheduler.step()
